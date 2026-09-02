@@ -610,8 +610,15 @@ const SoundEngine = (() => {
     if (musicOn || !enabled || !musicReady) return;
     bgm.volume = CONFIG.musicVolume;
     const p = bgm.play();
-    if (p && p.catch) p.catch(() => { /* blocked until a real user gesture; fine, we retry on next interaction */ });
-    musicOn = true;
+    if (p && p.then){
+      // only mark it "on" once playback is actually confirmed — if the
+      // browser silently blocks this attempt (common on the very first
+      // touch on mobile), fall back to false so the next real tap retries
+      p.then(() => { musicOn = true; })
+       .catch(() => { musicOn = false; });
+    } else {
+      musicOn = true;
+    }
   }
   function stopMusic(){
     musicOn = false;
@@ -656,6 +663,7 @@ function unlockAudioOnce(){
   if (SoundEngine.isEnabled()) SoundEngine.startMusic();
 }
 document.addEventListener('pointerdown', unlockAudioOnce, { once:true });
+document.addEventListener('click', unlockAudioOnce, { once:true });
 
 /* ---------------- typewriter ---------------- */
 function typewrite(el, text, speed=28){
