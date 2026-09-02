@@ -259,7 +259,7 @@ h1.title{
 .npc-box .who{
   font-family:'Press Start 2P', monospace;
   font-size: 9px;
-  color: var(--ink);
+  color: var(--ink-dark);
   background: var(--butter);
   border: 2px solid var(--line);
   display:inline-block;
@@ -645,12 +645,15 @@ soundBtn.addEventListener('click', () => {
   }
 });
 
-/* start audio context / music on first genuine interaction */
+/* start audio context / music on the very first tap anywhere on the page
+   — as close to "instant" as browsers allow, since none of them permit
+   audio with sound to play before any user interaction at all */
 let audioUnlocked = false;
 function unlockAudioOnce(){
   if (audioUnlocked) return;
   audioUnlocked = true;
   SoundEngine.ensureCtx();
+  if (SoundEngine.isEnabled()) SoundEngine.startMusic();
 }
 document.addEventListener('pointerdown', unlockAudioOnce, { once:true });
 
