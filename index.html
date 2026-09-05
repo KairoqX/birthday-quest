@@ -14,7 +14,8 @@
    Scroll all the way down to the <script> tag at the bottom
    and look for the big "CONFIG" section. That's the only
    place you need to touch — her name, the messages, the
-   colors, everything lives there.
+   colors, everything lives there — including the new
+   MIDNIGHT LOCK feature (CONFIG.lockToMidnight).
    ============================================================ */
 
 :root{
@@ -411,6 +412,56 @@ h1.title{
   94%{ transform: rotate(5deg); }
 }
 
+/* ---------- midnight lock screen ---------- */
+#lockScreen{
+  position:fixed; inset:0; z-index:90;
+  background: linear-gradient(180deg, #1c1428 0%, #241b2f 100%);
+  display:none; /* toggled to flex by JS */
+  flex-direction:column; align-items:center; justify-content:center;
+  text-align:center;
+  padding: 24px;
+  gap: 18px;
+}
+.lock-emoji{
+  font-size: 46px;
+  animation: lock-sway 2.4s ease-in-out infinite;
+}
+@keyframes lock-sway{
+  0%,100%{ transform: rotate(-6deg); }
+  50%{ transform: rotate(6deg); }
+}
+#lockScreen .lock-title{
+  font-size: 13px;
+  color: var(--ink);
+  text-shadow: 2px 2px 0 var(--pink-deep);
+  max-width: 340px;
+}
+#lockScreen .lock-sub{
+  font-size: 14px;
+  color: var(--ink-soft);
+  max-width: 320px;
+  line-height:1.5;
+}
+.lock-countdown-box{
+  border: 3px solid var(--line);
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: var(--shadow-soft);
+  padding: 14px 22px;
+}
+#lockCountdown{
+  font-family:'Press Start 2P', monospace;
+  font-size: 16px;
+  color: var(--butter);
+  letter-spacing: 1px;
+}
+.lock-countdown-label{
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin: 0 0 6px;
+}
+.lock-stars-wrap{ position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+
 @media (prefers-reduced-motion: reduce){
   *{ animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
@@ -421,6 +472,22 @@ h1.title{
 <div id="loading">
   <div class="loader-px"><span></span></div>
   <p class="pixel">LOADING QUEST...</p>
+</div>
+
+<!-- MIDNIGHT LOCK SCREEN — shown instead of the game whenever the phone's
+     clock isn't in the allowed window. See CONFIG.lockToMidnight below to
+     turn this feature on/off, and CONFIG.lockWindowHours to change the
+     allowed hour(s). -->
+<div id="lockScreen">
+  <div class="lock-stars-wrap" id="lockStars"></div>
+  <div class="lock-emoji">🔒</div>
+  <p class="pixel lock-title" id="lockTitle">SHHH... NOT YET</p>
+  <p class="lock-sub" id="lockSub">This little quest only unlocks at midnight on your phone. Come back then! 🌙✨</p>
+  <div class="lock-countdown-box">
+    <p class="pixel lock-countdown-label">TIME LEFT</p>
+    <div id="lockCountdown" class="pixel">--:--:--</div>
+  </div>
+  <p class="pixel" style="font-size:9px; color:var(--ink-soft);" id="lockHint">it'll unlock on its own, just keep this tab open (or come back at 12am) 💗</p>
 </div>
 
 <div id="sky"></div>
@@ -540,7 +607,7 @@ const CONFIG = {
   signature: "— From The GOAT ❤️",
 
   // ---- Colors (also editable directly in the CSS :root above) ----
-  // pink, pinkDeep, lilac, sky, mint, butter — see :root in <style>
+  // pink, pinkDeep, lilac, sky, mint, butter — see :root in :root
 
   // ---- Sound ----
   soundEnabledByDefault: true,   // music won't actually play until the first click regardless (browser rule)
@@ -554,6 +621,29 @@ const CONFIG = {
   // silent/invisible autoplay of full tracks from outside their own app).
   // Leave "" to hide the player entirely.
   spotifyTrackUrl: "",
+
+  // ---- 🔒 MIDNIGHT LOCK ----
+  // When true, the page only lets her INTO the quest while her phone's
+  // local clock reads within the allowed hour (default: 12:00am–12:59am).
+  // Outside that window she sees a lock screen with a live countdown
+  // instead of the quest, and it unlocks automatically the moment the
+  // clock rolls over — no refresh needed.
+  //
+  // NOTE: this checks the clock/timezone set on whatever DEVICE opens the
+  // link (there's no server here to verify a "real" time), so it's a fun
+  // surprise gate, not a security feature — someone could still see it
+  // early by changing their phone's clock.
+  lockToMidnight: true,
+
+  // Which hour(s), 0-23, count as "unlocked". Default [0] = the midnight
+  // hour (12:00am through 12:59am). Add more hours if you want a wider
+  // window, e.g. [0, 1] to also allow 1am-2am.
+  lockWindowHours: [0],
+
+  // Text shown on the lock screen.
+  lockTitle: "SHHH... NOT YET",
+  lockSubtext: "This little quest only unlocks at midnight on your phone. Come back then! 🌙✨",
+  lockHint: "it'll unlock on its own, just keep this tab open (or come back at 12am) 💗",
 };
 
 /* ============================================================
@@ -747,6 +837,19 @@ function burstSparkles(x, y, count=10){
     s.style.left = (Math.random()*100) + '%';
     s.style.animationDelay = (Math.random()*2.4) + 's';
     sky.appendChild(s);
+  }
+})();
+
+/* ---------------- tiny twinkly stars behind the lock screen ---------------- */
+(function initLockStars(){
+  const wrap = $('#lockStars');
+  for (let i=0;i<14;i++){
+    const s = document.createElement('div');
+    s.className = 'star-bg';
+    s.style.top = (Math.random()*90) + '%';
+    s.style.left = (Math.random()*100) + '%';
+    s.style.animationDelay = (Math.random()*2.4) + 's';
+    wrap.appendChild(s);
   }
 })();
 
@@ -1217,14 +1320,103 @@ function initSpotifyPlayer(){
   $('#spotifyBar').classList.add('visible');
 }
 
+/* ---------------- 🔒 midnight lock logic ---------------- */
+// Add ?unlock=1 to the URL to bypass the lock while you're testing/editing.
+function isTestBypass(){
+  try{
+    return new URLSearchParams(location.search).get('unlock') === '1';
+  } catch(e){ return false; }
+}
+
+function isUnlockedNow(){
+  if (!CONFIG.lockToMidnight) return true;
+  if (isTestBypass()) return true;
+  const hour = new Date().getHours();
+  return CONFIG.lockWindowHours.includes(hour);
+}
+
+// ms remaining until the NEXT hour that's inside lockWindowHours starts.
+function msUntilUnlock(){
+  const now = new Date();
+  const hours = [...CONFIG.lockWindowHours].sort((a,b)=>a-b);
+  // try each candidate hour today, then wrap to the first one tomorrow
+  for (const h of hours){
+    const candidate = new Date(now);
+    candidate.setHours(h, 0, 0, 0);
+    if (candidate > now) return candidate - now;
+  }
+  const wrap = new Date(now);
+  wrap.setDate(wrap.getDate() + 1);
+  wrap.setHours(hours[0], 0, 0, 0);
+  return wrap - now;
+}
+
+function formatCountdown(ms){
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+let lockTickInterval = null;
+
+function paintLockText(){
+  $('#lockTitle').textContent = CONFIG.lockTitle;
+  $('#lockSub').textContent = CONFIG.lockSubtext;
+  $('#lockHint').textContent = CONFIG.lockHint;
+}
+
+function updateLockCountdown(){
+  $('#lockCountdown').textContent = formatCountdown(msUntilUnlock());
+}
+
+function showLockScreen(){
+  paintLockText();
+  $('#app').style.display = 'none';
+  $('#topbar').style.display = 'none';
+  $('#spotifyBar').classList.remove('visible');
+  $('#lockScreen').style.display = 'flex';
+  updateLockCountdown();
+  if (lockTickInterval) clearInterval(lockTickInterval);
+  lockTickInterval = setInterval(() => {
+    if (isUnlockedNow()){
+      clearInterval(lockTickInterval);
+      lockTickInterval = null;
+      hideLockScreenAndStart();
+    } else {
+      updateLockCountdown();
+    }
+  }, 1000);
+}
+
+function hideLockScreenAndStart(){
+  $('#lockScreen').style.display = 'none';
+  $('#app').style.display = 'flex';
+  $('#topbar').style.display = 'flex';
+  startGame();
+}
+
+function startGame(){
+  goToScreen(1);
+  initSpotifyPlayer();
+}
+
 /* ---------------- boot ---------------- */
 window.addEventListener('load', () => {
   setTimeout(() => {
     const loading = $('#loading');
     loading.style.opacity = '0';
     setTimeout(()=> loading.style.display = 'none', 500);
-    goToScreen(1);
-    initSpotifyPlayer();
+
+    if (isUnlockedNow()){
+      startGame();
+    } else {
+      $('#app').style.display = 'none';
+      $('#topbar').style.display = 'none';
+      showLockScreen();
+    }
   }, 700);
 });
 </script>
