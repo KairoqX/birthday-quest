@@ -640,6 +640,12 @@ const CONFIG = {
   // window, e.g. [0, 1] to also allow 1am-2am.
   lockWindowHours: [0],
 
+  // true = once she opens it during the midnight window ONE TIME, it
+  // remembers (on that phone/browser) and stays unlocked forever after —
+  // it won't lock again the next day.
+  // false = it locks again every day outside the window (old behaviour).
+  stayUnlockedAfterFirstTime: true,
+
   // Text shown on the lock screen.
   lockTitle: "SHHH... NOT YET",
   lockSubtext: "This little quest only unlocks at midnight on your phone. Come back then! 🌙✨",
@@ -1328,11 +1334,26 @@ function isTestBypass(){
   } catch(e){ return false; }
 }
 
+const UNLOCK_STORAGE_KEY = 'birthdayQuestUnlockedForever';
+
+function wasEverUnlocked(){
+  try{ return localStorage.getItem(UNLOCK_STORAGE_KEY) === '1'; }
+  catch(e){ return false; }
+}
+function rememberUnlocked(){
+  try{ localStorage.setItem(UNLOCK_STORAGE_KEY, '1'); }
+  catch(e){ /* ignore (e.g. private browsing) */ }
+}
+
 function isUnlockedNow(){
   if (!CONFIG.lockToMidnight) return true;
   if (isTestBypass()) return true;
+  // once it has unlocked once on this device/browser, stay unlocked forever
+  if (CONFIG.stayUnlockedAfterFirstTime && wasEverUnlocked()) return true;
   const hour = new Date().getHours();
-  return CONFIG.lockWindowHours.includes(hour);
+  const inWindow = CONFIG.lockWindowHours.includes(hour);
+  if (inWindow && CONFIG.stayUnlockedAfterFirstTime) rememberUnlocked();
+  return inWindow;
 }
 
 // ms remaining until the NEXT hour that's inside lockWindowHours starts.
